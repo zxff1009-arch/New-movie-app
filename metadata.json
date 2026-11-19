@@ -1,0 +1,6 @@
+{
+  "name": "SkillSwap",
+  "description": "A peer-to-peer skill exchange Android app with intelligent matching, real-time messaging, learning sessions, gamification, and an AI learning roadmap assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

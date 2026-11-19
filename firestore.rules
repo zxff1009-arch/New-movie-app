@@ -1,0 +1,440 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL HELPERS ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    function isStringList(lst, maxLen) {
+      return lst is list && lst.size() <= maxLen && (lst.size() == 0 || lst[0] is string);
+    }
+
+    function userDocExists(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId));
+    }
+
+    // --- ENTITY VALIDATION HELPERS ---
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
+             data.bio is string && data.bio.size() <= 400 &&
+             data.avatarColorHex is string && data.avatarColorHex.size() >= 1 && data.avatarColorHex.size() <= 20 &&
+             isStringList(data.teachSkills, 20) &&
+             isStringList(data.learnSkills, 20) &&
+             data.skillLevel in ['Beginner', 'Intermediate', 'Advanced', 'Expert'] &&
+             data.availability is string && data.availability.size() >= 1 && data.availability.size() <= 60 &&
+             data.xp is int && data.xp >= 0 && data.xp <= 1000000 &&
+             data.level is int && data.level >= 1 && data.level <= 500 &&
+             data.streakDays is int && data.streakDays >= 0 && data.streakDays <= 3650 &&
+             data.completedSessionsCount is int && data.completedSessionsCount >= 0 && data.completedSessionsCount <= 10000 &&
+             data.onboardingCompleted is bool;
+    }
+
+    function isValidPartner(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+             data.headline is string && data.headline.size() >= 1 && data.headline.size() <= 120 &&
+             data.bio is string && data.bio.size() <= 500 &&
+             data.avatarInitials is string && data.avatarInitials.size() >= 1 && data.avatarInitials.size() <= 4 &&
+             data.avatarColorHex is string && data.avatarColorHex.size() >= 1 && data.avatarColorHex.size() <= 20 &&
+             data.teachSkill is string && data.teachSkill.size() >= 1 && data.teachSkill.size() <= 80 &&
+             data.teachCategory is string && data.teachCategory.size() >= 1 && data.teachCategory.size() <= 40 &&
+             data.teachLevel in ['Beginner', 'Intermediate', 'Advanced', 'Expert'] &&
+             data.wantSkill is string && data.wantSkill.size() >= 1 && data.wantSkill.size() <= 80 &&
+             data.wantCategory is string && data.wantCategory.size() >= 1 && data.wantCategory.size() <= 40 &&
+             data.availability is string && data.availability.size() >= 1 && data.availability.size() <= 60 &&
+             data.rating is number && data.rating >= 0 && data.rating <= 5 &&
+             data.reviewCount is int && data.reviewCount >= 0 && data.reviewCount <= 10000 &&
+             data.xp is int && data.xp >= 0 && data.xp <= 1000000 &&
+             data.connected is bool;
+    }
+
+    function isValidConversation(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.partnerId is string && data.partnerId.size() >= 1 && data.partnerId.size() <= 128 &&
+             data.partnerName is string && data.partnerName.size() >= 1 && data.partnerName.size() <= 80 &&
+             data.partnerInitials is string && data.partnerInitials.size() >= 1 && data.partnerInitials.size() <= 4 &&
+             data.partnerColorHex is string && data.partnerColorHex.size() >= 1 && data.partnerColorHex.size() <= 20 &&
+             data.partnerSkill is string && data.partnerSkill.size() >= 1 && data.partnerSkill.size() <= 80 &&
+             data.lastMessage is string && data.lastMessage.size() <= 500 &&
+             data.unreadCount is int && data.unreadCount >= 0 && data.unreadCount <= 999;
+    }
+
+    function isValidChatMessage(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.senderId is string && data.senderId.size() >= 1 && data.senderId.size() <= 128 &&
+             data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 80 &&
+             data.body is string && data.body.size() >= 1 && data.body.size() <= 1000 &&
+             data.messageType in ['text', 'proposal'] &&
+             (!('proposalSkill' in data) || (data.proposalSkill is string && data.proposalSkill.size() <= 80)) &&
+             (!('proposalDate' in data) || (data.proposalDate is string && data.proposalDate.size() <= 40)) &&
+             (!('proposalTime' in data) || (data.proposalTime is string && data.proposalTime.size() <= 40)) &&
+             (!('proposalStatus' in data) || (data.proposalStatus in ['pending', 'accepted', 'declined']));
+    }
+
+    function isValidLearningSession(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.partnerId is string && data.partnerId.size() >= 1 && data.partnerId.size() <= 128 &&
+             data.partnerName is string && data.partnerName.size() >= 1 && data.partnerName.size() <= 80 &&
+             data.skillTopic is string && data.skillTopic.size() >= 1 && data.skillTopic.size() <= 100 &&
+             data.sessionRole in ['learning', 'teaching'] &&
+             data.scheduledDate is string && data.scheduledDate.size() >= 1 && data.scheduledDate.size() <= 40 &&
+             data.scheduledTime is string && data.scheduledTime.size() >= 1 && data.scheduledTime.size() <= 40 &&
+             data.durationMinutes is int && data.durationMinutes >= 15 && data.durationMinutes <= 240 &&
+             data.status in ['proposed', 'scheduled', 'completed', 'cancelled'] &&
+             data.notes is string && data.notes.size() <= 1000 &&
+             data.xpAwarded is bool;
+    }
+
+    function isValidLearningRoadmap(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.skillName is string && data.skillName.size() >= 1 && data.skillName.size() <= 80 &&
+             data.targetLevel is string && data.targetLevel.size() >= 1 && data.targetLevel.size() <= 40 &&
+             data.summary is string && data.summary.size() >= 1 && data.summary.size() <= 600 &&
+             data.milestones is list && data.milestones.size() >= 1 && data.milestones.size() <= 10 &&
+             data.completedCount is int && data.completedCount >= 0 && data.completedCount <= 10 &&
+             data.totalCount is int && data.totalCount >= 1 && data.totalCount <= 10;
+    }
+
+    function isValidAchievement(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 80 &&
+             data.description is string && data.description.size() >= 1 && data.description.size() <= 200 &&
+             data.badgeKey is string && data.badgeKey.size() >= 1 && data.badgeKey.size() <= 40 &&
+             data.xpReward is int && data.xpReward >= 0 && data.xpReward <= 5000 &&
+             data.unlocked is bool &&
+             data.progress is int && data.progress >= 0 && data.progress <= 100 &&
+             data.target is int && data.target >= 1 && data.target <= 100;
+    }
+
+    function isValidReview(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 80 &&
+             data.authorInitials is string && data.authorInitials.size() >= 1 && data.authorInitials.size() <= 4 &&
+             data.skillTopic is string && data.skillTopic.size() >= 1 && data.skillTopic.size() <= 80 &&
+             data.rating is int && data.rating >= 1 && data.rating <= 5 &&
+             data.comment is string && data.comment.size() >= 1 && data.comment.size() <= 500;
+    }
+
+    // --- COLLECTION RULES ---
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().userId == userId &&
+                       incoming().keys().hasAll([
+                         'userId', 'displayName', 'bio', 'avatarColorHex',
+                         'teachSkills', 'learnSkills', 'skillLevel', 'availability',
+                         'xp', 'level', 'streakDays', 'completedSessionsCount',
+                         'onboardingCompleted', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'bio', 'avatarColorHex',
+                         'teachSkills', 'learnSkills', 'skillLevel', 'availability',
+                         'xp', 'level', 'streakDays', 'completedSessionsCount',
+                         'onboardingCompleted', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidTimestamp(incoming().createdAt) &&
+                       isValidTimestamp(incoming().updatedAt) &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidTimestamp(incoming().updatedAt) &&
+                       (
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'displayName', 'bio', 'avatarColorHex',
+                           'teachSkills', 'learnSkills', 'skillLevel',
+                           'availability', 'onboardingCompleted', 'updatedAt'
+                         ]) ||
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'xp', 'level', 'streakDays', 'completedSessionsCount', 'updatedAt'
+                         ])
+                       );
+
+      allow delete: if false;
+
+      // Partners subcollection
+      match /partners/{partnerId} {
+        allow get: if isOwner(userId) && isValidId(partnerId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(partnerId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'name', 'headline', 'bio', 'avatarInitials',
+                           'avatarColorHex', 'teachSkill', 'teachCategory', 'teachLevel',
+                           'wantSkill', 'wantCategory', 'availability', 'rating',
+                           'reviewCount', 'xp', 'connected', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'name', 'headline', 'bio', 'avatarInitials',
+                           'avatarColorHex', 'teachSkill', 'teachCategory', 'teachLevel',
+                           'wantSkill', 'wantCategory', 'availability', 'rating',
+                           'reviewCount', 'xp', 'connected', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidPartner(incoming()) &&
+                         userDocExists(userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(partnerId) &&
+                         isValidPartner(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['connected', 'updatedAt']);
+
+        allow delete: if false;
+      }
+
+      // Conversations subcollection
+      match /conversations/{conversationId} {
+        allow get: if isOwner(userId) && isValidId(conversationId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(conversationId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'partnerId', 'partnerName', 'partnerInitials',
+                           'partnerColorHex', 'partnerSkill', 'lastMessage',
+                           'unreadCount', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'partnerId', 'partnerName', 'partnerInitials',
+                           'partnerColorHex', 'partnerSkill', 'lastMessage',
+                           'unreadCount', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidConversation(incoming()) &&
+                         userDocExists(userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(conversationId) &&
+                         isValidConversation(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().partnerId == existing().partnerId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         (
+                           incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'unreadCount', 'updatedAt']) ||
+                           incoming().diff(existing()).affectedKeys().hasOnly(['unreadCount', 'updatedAt'])
+                         );
+
+        allow delete: if false;
+
+        // Messages subcollection
+        match /messages/{messageId} {
+          allow get: if isOwner(userId) && isValidId(conversationId) && isValidId(messageId);
+          allow list: if isOwner(userId) && isValidId(conversationId);
+
+          allow create: if isOwner(userId) &&
+                           isValidId(conversationId) &&
+                           isValidId(messageId) &&
+                           incoming().userId == userId &&
+                           incoming().keys().hasAll([
+                             'userId', 'senderId', 'senderName', 'body',
+                             'messageType', 'createdAt', 'updatedAt'
+                           ]) &&
+                           incoming().keys().hasOnly([
+                             'userId', 'senderId', 'senderName', 'body', 'messageType',
+                             'proposalSkill', 'proposalDate', 'proposalTime',
+                             'proposalStatus', 'createdAt', 'updatedAt'
+                           ]) &&
+                           isValidTimestamp(incoming().createdAt) &&
+                           isValidTimestamp(incoming().updatedAt) &&
+                           isValidChatMessage(incoming()) &&
+                           exists(/databases/$(database)/documents/users/$(userId)/conversations/$(conversationId));
+
+          allow update: if isOwner(userId) &&
+                           isValidId(conversationId) &&
+                           isValidId(messageId) &&
+                           isValidChatMessage(incoming()) &&
+                           incoming().userId == existing().userId &&
+                           incoming().senderId == existing().senderId &&
+                           incoming().createdAt == existing().createdAt &&
+                           isValidTimestamp(incoming().updatedAt) &&
+                           existing().messageType == 'proposal' &&
+                           existing().proposalStatus == 'pending' &&
+                           incoming().proposalStatus in ['accepted', 'declined'] &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['proposalStatus', 'updatedAt']);
+
+          allow delete: if false;
+        }
+      }
+
+      // Learning Sessions subcollection
+      match /sessions/{sessionId} {
+        allow get: if isOwner(userId) && isValidId(sessionId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(sessionId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'partnerId', 'partnerName', 'skillTopic',
+                           'sessionRole', 'scheduledDate', 'scheduledTime',
+                           'durationMinutes', 'status', 'notes', 'xpAwarded',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'partnerId', 'partnerName', 'skillTopic',
+                           'sessionRole', 'scheduledDate', 'scheduledTime',
+                           'durationMinutes', 'status', 'notes', 'xpAwarded',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidLearningSession(incoming()) &&
+                         userDocExists(userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(sessionId) &&
+                         isValidLearningSession(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().partnerId == existing().partnerId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         existing().status != 'completed' &&
+                         existing().status != 'cancelled' &&
+                         (
+                           incoming().diff(existing()).affectedKeys().hasOnly(['notes', 'updatedAt']) ||
+                           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'xpAwarded', 'notes', 'updatedAt']) ||
+                           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+                         );
+
+        allow delete: if false;
+      }
+
+      // AI Learning Roadmaps subcollection
+      match /roadmaps/{roadmapId} {
+        allow get: if isOwner(userId) && isValidId(roadmapId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(roadmapId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'skillName', 'targetLevel', 'summary',
+                           'milestones', 'completedCount', 'totalCount',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'skillName', 'targetLevel', 'summary',
+                           'milestones', 'completedCount', 'totalCount',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidLearningRoadmap(incoming()) &&
+                         userDocExists(userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(roadmapId) &&
+                         isValidLearningRoadmap(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['milestones', 'completedCount', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(roadmapId);
+      }
+
+      // Achievements subcollection
+      match /achievements/{achievementId} {
+        allow get: if isOwner(userId) && isValidId(achievementId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(achievementId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'title', 'description', 'badgeKey',
+                           'xpReward', 'unlocked', 'progress', 'target',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'title', 'description', 'badgeKey',
+                           'xpReward', 'unlocked', 'progress', 'target',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidAchievement(incoming()) &&
+                         userDocExists(userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(achievementId) &&
+                         isValidAchievement(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['unlocked', 'progress', 'updatedAt']);
+
+        allow delete: if false;
+      }
+
+      // Reviews subcollection
+      match /reviews/{reviewId} {
+        allow get: if isOwner(userId) && isValidId(reviewId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(reviewId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'authorName', 'authorInitials',
+                           'skillTopic', 'rating', 'comment',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'authorName', 'authorInitials',
+                           'skillTopic', 'rating', 'comment',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidReview(incoming()) &&
+                         userDocExists(userId);
+
+        allow update, delete: if false;
+      }
+    }
+  }
+}

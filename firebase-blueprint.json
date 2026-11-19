@@ -1,0 +1,226 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user's SkillSwap profile, offered/wanted skills, availability, and gamification stats.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the owner." },
+        "displayName": { "type": "string", "description": "Public display name." },
+        "bio": { "type": "string", "description": "Short personal bio and learning goals." },
+        "avatarColorHex": { "type": "string", "description": "Hex accent color for user avatar badge." },
+        "teachSkills": { "type": "array", "description": "Skills the user can teach (max 20)." },
+        "learnSkills": { "type": "array", "description": "Skills the user wants to learn (max 20)." },
+        "skillLevel": { "type": "string", "enum": ["Beginner", "Intermediate", "Advanced", "Expert"] },
+        "availability": { "type": "string", "description": "Preferred weekly availability." },
+        "xp": { "type": "integer", "description": "Total earned XP points." },
+        "level": { "type": "integer", "description": "Current gamification level." },
+        "streakDays": { "type": "integer", "description": "Active learning streak in days." },
+        "completedSessionsCount": { "type": "integer", "description": "Count of completed swap sessions." },
+        "onboardingCompleted": { "type": "boolean", "description": "Whether initial skill onboarding is completed." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": [
+        "userId", "displayName", "bio", "avatarColorHex", "teachSkills",
+        "learnSkills", "skillLevel", "availability", "xp", "level",
+        "streakDays", "completedSessionsCount", "onboardingCompleted",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "MentorPartner": {
+      "title": "MentorPartner",
+      "description": "Community skill-swap mentor or peer partner in the user's explore and match catalog.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "headline": { "type": "string" },
+        "bio": { "type": "string" },
+        "avatarInitials": { "type": "string" },
+        "avatarColorHex": { "type": "string" },
+        "teachSkill": { "type": "string" },
+        "teachCategory": { "type": "string" },
+        "teachLevel": { "type": "string", "enum": ["Beginner", "Intermediate", "Advanced", "Expert"] },
+        "wantSkill": { "type": "string" },
+        "wantCategory": { "type": "string" },
+        "availability": { "type": "string" },
+        "rating": { "type": "number" },
+        "reviewCount": { "type": "integer" },
+        "xp": { "type": "integer" },
+        "connected": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "name", "headline", "bio", "avatarInitials", "avatarColorHex",
+        "teachSkill", "teachCategory", "teachLevel", "wantSkill", "wantCategory",
+        "availability", "rating", "reviewCount", "xp", "connected",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "Chat thread summary between the user and a skill-swap partner.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "partnerId": { "type": "string" },
+        "partnerName": { "type": "string" },
+        "partnerInitials": { "type": "string" },
+        "partnerColorHex": { "type": "string" },
+        "partnerSkill": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "unreadCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "partnerId", "partnerName", "partnerInitials",
+        "partnerColorHex", "partnerSkill", "lastMessage", "unreadCount",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Individual chat message or interactive session proposal inside a conversation.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "body": { "type": "string" },
+        "messageType": { "type": "string", "enum": ["text", "proposal"] },
+        "proposalSkill": { "type": "string" },
+        "proposalDate": { "type": "string" },
+        "proposalTime": { "type": "string" },
+        "proposalStatus": { "type": "string", "enum": ["pending", "accepted", "declined"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "senderId", "senderName", "body", "messageType",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "LearningSession": {
+      "title": "LearningSession",
+      "description": "Scheduled, proposed, or completed peer learning session.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "partnerId": { "type": "string" },
+        "partnerName": { "type": "string" },
+        "skillTopic": { "type": "string" },
+        "sessionRole": { "type": "string", "enum": ["learning", "teaching"] },
+        "scheduledDate": { "type": "string" },
+        "scheduledTime": { "type": "string" },
+        "durationMinutes": { "type": "integer" },
+        "status": { "type": "string", "enum": ["proposed", "scheduled", "completed", "cancelled"] },
+        "notes": { "type": "string" },
+        "xpAwarded": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "partnerId", "partnerName", "skillTopic", "sessionRole",
+        "scheduledDate", "scheduledTime", "durationMinutes", "status",
+        "notes", "xpAwarded", "createdAt", "updatedAt"
+      ]
+    },
+    "LearningRoadmap": {
+      "title": "LearningRoadmap",
+      "description": "AI-generated personalized skill roadmap with trackable milestones.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "skillName": { "type": "string" },
+        "targetLevel": { "type": "string" },
+        "summary": { "type": "string" },
+        "milestones": { "type": "array" },
+        "completedCount": { "type": "integer" },
+        "totalCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "skillName", "targetLevel", "summary", "milestones",
+        "completedCount", "totalCount", "createdAt", "updatedAt"
+      ]
+    },
+    "Achievement": {
+      "title": "Achievement",
+      "description": "Gamification badge unlocked via learning streaks, sessions, and mentoring.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "badgeKey": { "type": "string" },
+        "xpReward": { "type": "integer" },
+        "unlocked": { "type": "boolean" },
+        "progress": { "type": "integer" },
+        "target": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "title", "description", "badgeKey", "xpReward",
+        "unlocked", "progress", "target", "createdAt", "updatedAt"
+      ]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Peer rating and testimonial received from a skill swap.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorInitials": { "type": "string" },
+        "skillTopic": { "type": "string" },
+        "rating": { "type": "integer" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "authorName", "authorInitials", "skillTopic",
+        "rating", "comment", "createdAt", "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile and gamification summary."
+    },
+    "/users/{userId}/partners/{partnerId}": {
+      "schema": { "$ref": "#/entities/MentorPartner" },
+      "description": "User's explore catalog and matched skill partners."
+    },
+    "/users/{userId}/conversations/{conversationId}": {
+      "schema": { "$ref": "#/entities/Conversation" },
+      "description": "User's active skill-swap chat conversations."
+    },
+    "/users/{userId}/conversations/{conversationId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Messages and session proposals in a conversation."
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/LearningSession" },
+      "description": "Scheduled and completed learning sessions."
+    },
+    "/users/{userId}/roadmaps/{roadmapId}": {
+      "schema": { "$ref": "#/entities/LearningRoadmap" },
+      "description": "AI-generated personalized skill roadmaps."
+    },
+    "/users/{userId}/achievements/{achievementId}": {
+      "schema": { "$ref": "#/entities/Achievement" },
+      "description": "User's gamification badges."
+    },
+    "/users/{userId}/reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/Review" },
+      "description": "Peer reviews on the user's profile."
+    }
+  }
+}
